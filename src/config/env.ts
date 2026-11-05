@@ -28,6 +28,14 @@ export const env = {
   // "Sign in with Google": Google Cloud Console ka OAuth Web client ID (public hai, secret nahi)
   // (VITE_GOOGLE_CLIENT_ID bhi chalega: aksar wahi naam dono projects mein daal diya jata hai)
   googleClientId: (process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || '').trim(),
+  // Followers khud lane ke liye. Khali ho to woh platform skip (purana number rehta hai)
+  tavilyApiKey: (process.env.TAVILY_API_KEY || '').trim(),
+  youtubeApiKey: (process.env.YOUTUBE_API_KEY || '').trim(),
+  // Optional: regex se number na nikle to Groq ka sasta model text se nikale
+  groqApiKey: (process.env.GROQ_API_KEY || '').trim(),
+  groqModel: (process.env.GROQ_MODEL || 'llama-3.1-8b-instant').trim(),
+  // Vercel Cron yahi secret "Authorization: Bearer ..." mein bhejta hai
+  cronSecret: (process.env.CRON_SECRET || '').trim(),
 }
 
 export const isProduction = env.nodeEnv === 'production'

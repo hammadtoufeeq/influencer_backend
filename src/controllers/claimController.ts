@@ -33,6 +33,7 @@ import {
   verifyCodeSchema,
   type CreateClaimInput,
 } from '../validators/claimValidator'
+import { mergeSocialAccounts } from '../services/followerService'
 
 const PERSON_FIELDS = 'name slug headline photoUrl claimedBy'
 const CLAIM_POPULATE = [
@@ -159,6 +160,7 @@ export async function createNewProfileClaim(req: Request, res: Response) {
   const { contactEmail: _contactEmail, note, force: _force, ...profile } = input
   const person = await Person.create({
     ...profile,
+    socialAccounts: mergeSocialAccounts([], profile.socialAccounts),
     slug,
     professions,
     industries,

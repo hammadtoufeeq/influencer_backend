@@ -1,9 +1,11 @@
 import { Schema, model, type Types } from 'mongoose'
 import {
+  FOLLOWER_STATUSES,
   LANGUAGE_CODES,
   PROFILE_STATUSES,
   SOCIAL_PLATFORMS,
   SOURCE_TYPES,
+  type FollowerStatus,
   type ProfileStatus,
   type SocialPlatform,
   type SourceType,
@@ -23,8 +25,16 @@ export interface ISocialAccount {
   platform: SocialPlatform
   handle?: string
   url: string
+  // Khud aate hain (talent haath se nahi likhta). Andaza: public profile se
   followers?: number
   engagementRate?: number
+  // Number kis page se mila aur kab
+  followersSourceUrl?: string
+  followersUpdatedAt?: Date
+  // Aakhri koshish kab hui, kya nateeja, aur lagatar kitni dafa nahi mila
+  followersCheckedAt?: Date
+  followersStatus?: FollowerStatus
+  followersFailCount?: number
 }
 
 export interface ISourceRecord {
@@ -118,6 +128,11 @@ const socialAccountSchema = new Schema<ISocialAccount>(
     url: { type: String, required: true, trim: true },
     followers: { type: Number, min: 0 },
     engagementRate: { type: Number, min: 0, max: 100 },
+    followersSourceUrl: { type: String, trim: true },
+    followersUpdatedAt: { type: Date },
+    followersCheckedAt: { type: Date },
+    followersStatus: { type: String, enum: FOLLOWER_STATUSES },
+    followersFailCount: { type: Number, min: 0 },
   },
   { _id: false },
 )
@@ -223,6 +238,8 @@ personSchema.index({ industries: 1 })
 personSchema.index({ topics: 1 })
 personSchema.index({ country: 1, city: 1 })
 personSchema.index({ 'availability.isOpen': 1, 'availability.openTo': 1 })
+// Roz ka cron: jin accounts ko sab se der se dekha, woh pehle
+personSchema.index({ 'socialAccounts.followersCheckedAt': 1 })
 
 // Save se pehle followers ka jor dobara nikalo
 personSchema.pre('save', function () {

@@ -26,7 +26,7 @@ const socialAccountSchema = z.object({
   platform: z.enum(SOCIAL_PLATFORMS),
   handle: z.string().trim().max(100).optional(),
   url: webUrl('Enter a valid URL'),
-  followers: z.number().int().min(0).optional(),
+  // followers yahan nahi: woh khud aate hain (talent / admin haath se nahi likhte)
   engagementRate: z.number().min(0).max(100).optional(),
 })
 

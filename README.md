@@ -103,6 +103,7 @@ Services and availability live on the talent's `Person`. The public profile only
 | POST | `/api/people` | admin | create a profile (taxonomy as slugs). A new profile cannot be `verified` (409 `PROFILE_NOT_CLAIMED`) |
 | PATCH | `/api/people/:id` | admin or the user who claimed it | edit; only admin can change `name, status, visibility`. On a claimed profile the admin can only change `visibility` (403 `PROFILE_CLAIMED` otherwise). `verified` cannot be changed by hand (409 `AUTO_VERIFIED`): a profile becomes verified automatically when its claim is approved. The owner (or their manager) must keep at least one social account: saving with none gives 400 with `fields.socialAccounts`; `websiteUrl` is optional |
 | DELETE | `/api/people/:id` | admin | delete a profile permanently (prefer `visibility: hidden` for takedowns) |
+| POST | `/api/people/:id/refresh-followers` | admin, the owner, or their manager | fetch the followers of every Instagram / YouTube / Facebook / X / TikTok account now. Once an hour at most (429 `REFRESH_TOO_SOON`). Returns `{ person, checked, updated }` |
 | GET | `/api/taxonomy/professions` (`industries`, `topics`) | anyone | dropdown lists |
 
 ## Claim endpoints
@@ -385,6 +386,17 @@ Create and edit use `POST /api/people` and `PATCH /api/people/:id`.
 The client IP is read from Vercel's `x-vercel-forwarded-for`, then `req.ip`. Tests turn limits off with `RATE_LIMIT=off` (the security test turns them on).
 - **Auth:** bcrypt passwords, JWT in `httpOnly` cookies (`secure` in production, `sameSite=lax`), refresh tokens revoked through `tokenVersion`, OTP codes stored only as hashes with attempt locks. Production errors never include stack traces.
 
+## Followers (fetched automatically)
+
+Nobody types follower counts by hand: `followers` sent in `socialAccounts` is ignored. Each account keeps a `handle`, taken from the profile link when the form leaves it empty (`instagram.com/babarazam` → `babarazam`, `youtube.com/@name`, `youtube.com/channel/UC…`, `tiktok.com/@name`, `x.com/name`, `facebook.com/page`).
+
+- **YouTube**: official YouTube Data API v3 (`channels.list`, exact but rounded by YouTube). Hidden subscriber counts stay empty.
+- **Instagram, Facebook, X, TikTok**: one Tavily search per account (`"{handle} {platform} followers"`, limited to that site with `include_domains`). The number is taken only from a result whose link is exactly that account (`instagram.com/{handle}`), with a regex for `5.4M`, `12.3K`, `1,234,567` followers. If `GROQ_API_KEY` is set and the regex finds nothing, Groq reads the same text, and its answer is kept only if it appears word for word in that text. These numbers are **approximate**: they are as old as the search index.
+- Each account stores `followers`, `followersSourceUrl`, `followersUpdatedAt` (when a number was last found), `followersCheckedAt`, `followersStatus` (`ok`, `not_found`, `error`) and `followersFailCount`. A failed lookup never removes the last number. `totalFollowers` is the sum, as before.
+- **When**: right after a profile is saved (new or changed accounts only), from the refresh button (once an hour), and from the daily Vercel Cron `GET /api/cron/followers` (`vercel.json`, 03:00 UTC). The cron needs `Authorization: Bearer <CRON_SECRET>` (Vercel sends it), takes 10 profiles per run and refreshes an account once a week (once every 4 weeks after 3 misses in a row). Demo profiles are skipped.
+- **Credits**: about 1 Tavily credit per non-YouTube account per week. 40 talents with 4 such accounts each use about 690 of the 1,000 free monthly credits.
+- Without a key that platform is skipped and nothing changes. Run the cron by hand: `curl -H "Authorization: Bearer $CRON_SECRET" http://localhost:5000/api/cron/followers`.
+
 ## Caching
 
 Public GETs send `Cache-Control: public, max-age=0, must-revalidate` (the browser always checks) and `CDN-Cache-Control` so Vercel's CDN can answer for 60s (people) or 1h (taxonomy). Errors are `no-store`.
@@ -398,6 +410,8 @@ The backend runs on Vercel as a serverless function (Vercel uses the app exporte
 `NODE_ENV`, `CLIENT_URL` (comma separated for several frontends), `MONGO_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` (see `.env.example`).
 
 For **Sign in / Sign up with Google** set `GOOGLE_CLIENT_ID`: in Google Cloud Console open *APIs & Services → Credentials → Create credentials → OAuth client ID*, choose *Web application*, and add the frontend domain (for example `https://influencer-frontend-kappa.vercel.app`) under *Authorized JavaScript origins*. The client ID is public (not a secret). Without it the Google buttons are simply hidden. Endpoints: `GET /api/auth/google/config`, `POST /api/auth/google/login` and `POST /api/auth/google/register` (same fields as `/register`, minus email and password).
+
+For **automatic followers** set `YOUTUBE_API_KEY` (Google Cloud Console → *APIs & Services → Library → YouTube Data API v3 → Enable*, then *Credentials → Create credentials → API key*, and restrict the key to *YouTube Data API v3*), `TAVILY_API_KEY` (sign up at app.tavily.com, the key is on the dashboard; the free plan has 1,000 credits a month) and `CRON_SECRET` (any long random string, Vercel sends it to the cron). `GROQ_API_KEY` (console.groq.com → API Keys) is optional, and `GROQ_MODEL` defaults to `llama-3.1-8b-instant`. Vercel's Hobby plan runs cron jobs once a day, which is what `vercel.json` asks for.
 
 For password reset emails also set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` and `MAIL_FROM`. With Gmail use `smtp.gmail.com`, port `587` and a Google **App Password** (not the normal Gmail password). Without `SMTP_HOST` the code is printed in the server terminal in development, and production answers 503 `EMAIL_NOT_CONFIGURED`.
 

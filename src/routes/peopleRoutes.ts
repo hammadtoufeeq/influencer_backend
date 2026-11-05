@@ -5,6 +5,7 @@ import {
   getPersonBySlug,
   getPersonPhoto,
   listPeople,
+  refreshPersonFollowers,
   updatePerson,
 } from '../controllers/peopleController'
 import { listPersonReviews } from '../controllers/agreementController'
@@ -39,6 +40,8 @@ router.get('/photos/:id', getPersonPhoto)
 // Talent (ya us ka manager / admin unclaimed pe) profile photo upload karta hai: form field "photo"
 router.put('/:id/photo', requireAuth, uploadImage, uploadPersonPhoto)
 router.delete('/:id/photo', requireAuth, removePersonPhoto)
+// Followers abhi dobara lao (maalik / manager / admin, ghante mein ek dafa)
+router.post('/:id/refresh-followers', requireAuth, refreshPersonFollowers)
 router.get('/:slug/reviews', cachePublic(10, 20), listPersonReviews)
 router.get('/:slug', cachePublic(10, 20), getPersonBySlug)
 router.post(
