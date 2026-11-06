@@ -120,6 +120,8 @@ export const passwordResetLimiter = limiter('reset', { windowMinutes: 15, max: 1
 export const otpLimiter = limiter('otp', { windowMinutes: 15, max: 20, by: 'user', failuresOnly: true })
 // Public report form: ek IP se ghante mein 10
 export const reportLimiter = limiter('report', { windowMinutes: 60, max: 10, by: 'ip' })
+// Talent ke baare mein sawal: ek IP se ghante mein 5
+export const inquiryLimiter = limiter('inquiry', { windowMinutes: 60, max: 5, by: 'ip' })
 // Saari likhne wali requests (POST / PATCH / PUT / DELETE): har user (ya IP) minute mein 120.
 // GET pe nahi: woh CDN se aati hain aur har GET pe DB ka ek aur chakkar faltu hai
 const writes = limiter('write', { windowMinutes: 1, max: 120, by: 'user' })

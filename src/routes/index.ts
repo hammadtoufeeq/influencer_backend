@@ -16,6 +16,7 @@ import directoryRoutes from './directoryRoutes'
 import campaignRoutes from './campaignRoutes'
 import accountRoutes from './accountRoutes'
 import cronRoutes from './cronRoutes'
+import inquiryRoutes from './inquiryRoutes'
 import { getUpload } from '../controllers/uploadController'
 
 // Saari API routes yahan ek jagah jorte hain
@@ -26,6 +27,7 @@ router.use('/people', peopleRoutes)
 router.use('/taxonomy', taxonomyRoutes)
 router.use('/claims', claimRoutes)
 router.use('/reports', reportRoutes)
+router.use('/inquiries', inquiryRoutes)
 router.use('/admin', adminRoutes)
 router.use('/notifications', notificationRoutes)
 // /me/manager pehle, warna /me wale talent routes us ko le lete

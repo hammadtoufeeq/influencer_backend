@@ -45,6 +45,7 @@ export const NOTIFICATION_CATEGORIES = {
     'claim.code_verified',
     'claim.otp_locked',
     'report.new',
+    'inquiry.new',
     'business.new',
     'business.code_verified',
     'business.otp_locked',

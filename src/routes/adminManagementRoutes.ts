@@ -19,6 +19,11 @@ import {
   adminUpdateReport,
 } from '../controllers/adminReportController'
 import { adminGetStats } from '../controllers/adminStatsController'
+import {
+  adminGetInquiry,
+  adminListInquiries,
+  adminUpdateInquiry,
+} from '../controllers/inquiryController'
 import { adminGetManager, adminListManagers, adminReviewManager } from '../controllers/managerController'
 import {
   adminListUsers,
@@ -44,6 +49,10 @@ router.patch('/users/:id/role', adminUpdateUserRole)
 router.get('/reports', adminListReports)
 router.get('/reports/:id', adminGetReport)
 router.patch('/reports/:id', adminUpdateReport)
+
+router.get('/inquiries', adminListInquiries)
+router.get('/inquiries/:id', adminGetInquiry)
+router.patch('/inquiries/:id', adminUpdateInquiry)
 
 router.get('/businesses', adminListBusinesses)
 router.get('/businesses/:id', adminGetBusiness)

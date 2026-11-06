@@ -303,6 +303,17 @@ A business / organization posts a campaign and talents apply to it themselves. O
 
 Notifications: `campaign.application` (business), `campaign.accepted`, `campaign.rejected` (talent). Deleting an account removes its campaigns and applications.
 
+## Talent queries (inquiries)
+
+Anyone, logged in or not, can send a question about a talent from the public profile (**Send a query**). It goes to the admins only (not to the talent), who answer by email.
+
+| Method | URL | Who | What |
+|---|---|---|---|
+| POST | `/api/inquiries` | anyone | body `personId, name, email, phone?, message (10-2000)`. Only visible profiles (404 otherwise). 5 per hour per IP (429). `website` is a hidden spam trap: if a bot fills it, the answer looks fine but nothing is saved. Admins get an `inquiry.new` notification |
+| GET | `/api/admin/inquiries` | admin | `status (new, in_progress, answered, closed), page, limit`. Open ones oldest first, the rest newest first |
+| GET | `/api/admin/inquiries/:id` | admin | `{ inquiry, history }` |
+| PATCH | `/api/admin/inquiries/:id` | admin | body `status (in_progress, answered, closed), adminNote?`. Written to the audit log (`inquiry.update`) |
+
 ## Photo uploads (multer)
 
 Every account can upload a photo (talent, manager, admin) or logo (business); a talent, their manager (with `manageProfile`) or an admin (unclaimed profiles only) can also upload the public profile photo. Files come in as `multipart/form-data` in the field **`photo`**: one JPG, PNG or WebP image up to **2 MB**. The real type is checked from the file's first bytes, not from the name or browser header.
