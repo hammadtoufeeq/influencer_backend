@@ -15,6 +15,7 @@ import {
 import { activeRepresentation, canManageProfile } from '../services/representationService'
 import {
   mergeSocialAccounts,
+  nextRefreshAt,
   refreshFollowers,
   refreshNewAccounts,
 } from '../services/followerService'
@@ -301,8 +302,17 @@ async function editAccess(
   return { isAdmin, isOwner }
 }
 
-// Ghante mein ek dafa se zyada nahi (Tavily ke credits)
-const REFRESH_COOLDOWN_MS = 60 * 60 * 1000
+// Din mein ek dafa: aaj ho chuka (save, button ya cron se) to 429 aur kab dobara ho sakta hai
+function tooSoon(next: Date) {
+  const hours = Math.max(1, Math.ceil((next.getTime() - Date.now()) / (60 * 60 * 1000)))
+  return new AppError(
+    429,
+    'REFRESH_TOO_SOON',
+    `Followers can be refreshed once a day. Try again in ${hours} hour${hours === 1 ? '' : 's'}`,
+    undefined,
+    { nextRefreshAt: next.toISOString() },
+  )
+}
 
 // POST /api/people/:id/refresh-followers -> maalik / manager / admin abhi followers dobara laye
 export async function refreshPersonFollowers(req: Request, res: Response) {
@@ -312,20 +322,15 @@ export async function refreshPersonFollowers(req: Request, res: Response) {
   if (!person) throw new AppError(404, 'NOT_FOUND', 'Profile not found')
   await editAccess(req, person)
 
-  const last = Math.max(
-    0,
-    ...person.socialAccounts.map((account) => account.followersCheckedAt?.getTime() ?? 0),
-  )
-  const waitMs = last + REFRESH_COOLDOWN_MS - Date.now()
-  if (waitMs > 0) {
-    throw new AppError(
-      429,
-      'REFRESH_TOO_SOON',
-      `Followers were checked recently. Try again in ${Math.ceil(waitMs / 60_000)} minutes`,
-    )
-  }
+  const next = nextRefreshAt(person)
+  if (next) throw tooSoon(next)
 
-  const result = await refreshFollowers(person)
+  const { limited, ...result } = await refreshFollowers(person)
+  // Isi waqt kisi aur request ne aaj ki baari le li
+  if (limited) {
+    const latest = await Person.findById(id).select('followersRefreshedAt').lean()
+    throw tooSoon(nextRefreshAt(latest ?? person) ?? new Date())
+  }
   await person.populate(TAXONOMY_POPULATE)
   sendSuccess(res, { person, ...result })
 }

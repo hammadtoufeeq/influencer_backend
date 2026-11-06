@@ -103,6 +103,8 @@ export interface IPerson {
   city?: string
   websiteUrl?: string
   socialAccounts: ISocialAccount[]
+  // Followers aakhri dafa kab dhoonde (YouTube / Tavily): din mein sirf ek dafa
+  followersRefreshedAt?: Date | null
   // Saare social accounts ke followers ka jor (search filter ke liye)
   totalFollowers: number
   claimedBy: Types.ObjectId | null
@@ -209,6 +211,7 @@ const personSchema = new Schema<IPerson>(
     city: { type: String, trim: true },
     websiteUrl: { type: String, trim: true },
     socialAccounts: { type: [socialAccountSchema], default: [] },
+    followersRefreshedAt: { type: Date, default: null },
     totalFollowers: { type: Number, default: 0 },
     claimedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
     representedBy: [{ type: Schema.Types.ObjectId, ref: 'User' }],

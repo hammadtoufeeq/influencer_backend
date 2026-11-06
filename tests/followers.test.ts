@@ -179,9 +179,22 @@ describe('profile edits', () => {
       expect(account.followersStatus).toBe('ok')
       expect(res.body.data.person.totalFollowers).toBe(5_400_000)
 
-      // Abhi dekha hai: ghante se pehle dobara nahi
+      // Aaj ho chuka: din mein dobara nahi, na button se na save se
       const again = await talent.agent.post(`/api/people/${person._id}/refresh-followers`)
       expect(again.status).toBe(429)
+      expect(again.body.error.code).toBe('REFRESH_TOO_SOON')
+
+      const resave = await talent.agent.patch(`/api/people/${person._id}`).send({
+        socialAccounts: [
+          { platform: 'instagram', url: 'https://instagram.com/star' },
+          { platform: 'tiktok', url: 'https://tiktok.com/@star' },
+        ],
+      })
+      expect(resave.status).toBe(200)
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const [kept, waiting] = resave.body.data.person.socialAccounts
+      expect(kept.followers).toBe(5_400_000)
+      expect(waiting.followersCheckedAt).toBeUndefined()
     } finally {
       env.tavilyApiKey = ''
     }
