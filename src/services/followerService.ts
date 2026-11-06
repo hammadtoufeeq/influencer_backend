@@ -12,8 +12,10 @@ const DAY = 24 * 60 * 60 * 1000
 export const REFRESH_EVERY_MS = 7 * DAY
 const FAILING_REFRESH_EVERY_MS = 28 * DAY
 const FAILING_AFTER = 3
-// Ek talent ke followers din mein sirf ek dafa dhoondte hain (save, button, cron sab mila ke)
-export const REFRESH_LIMIT_MS = DAY
+// Ek talent ke followers kitni der mein ek dafa (FOLLOWERS_REFRESH_LIMIT_HOURS; 0 = koi limit nahi)
+export function refreshLimitMs() {
+  return env.followersRefreshLimitHours * 60 * 60 * 1000
+}
 // Roz ke cron mein itne profiles (40 talents hafte mein poore ho jate hain)
 export const CRON_BATCH = 10
 
@@ -81,20 +83,25 @@ export function isDue(account: ISocialAccount, now = new Date()) {
   return now.getTime() - account.followersCheckedAt.getTime() >= every
 }
 
-// Is platform ki key lagi hai? (warna lookup ka koi faida nahi, din ki baari bhi kharch na ho)
+// Is platform ki key lagi hai? (warna lookup ka koi faida nahi, baari bhi kharch na ho)
 function canLookup(platform: FollowerPlatform) {
   return platform === 'youtube' ? Boolean(env.youtubeApiKey) : Boolean(env.tavilyApiKey)
 }
 
-// Aaj ki baari le lo: pichhle 24 ghante mein refresh hua ho to nahi milti. Ek hi atomic update,
-// is liye do save ek saath aayein tab bhi sirf ek ko milti hai
-async function claimDailyRefresh(person: HydratedDocument<IPerson>, now: Date) {
+// Baari le lo: limit ke andar refresh hua ho to nahi milti. Ek hi atomic update, is liye
+// do save ek saath aayein tab bhi sirf ek ko milti hai. Limit 0 = hamesha milti hai
+async function claimRefresh(person: HydratedDocument<IPerson>, now: Date) {
+  if (refreshLimitMs() === 0) {
+    await Person.updateOne({ _id: person._id }, { $set: { followersRefreshedAt: now } })
+    person.set('followersRefreshedAt', now)
+    return true
+  }
   const result = await Person.updateOne(
     {
       _id: person._id,
       $or: [
         { followersRefreshedAt: null },
-        { followersRefreshedAt: { $lte: new Date(now.getTime() - REFRESH_LIMIT_MS) } },
+        { followersRefreshedAt: { $lte: new Date(now.getTime() - refreshLimitMs()) } },
       ],
     },
     { $set: { followersRefreshedAt: now } },
@@ -108,7 +115,7 @@ async function claimDailyRefresh(person: HydratedDocument<IPerson>, now: Date) {
 // Agla refresh kab ho sakta hai (abhi ho sakta hai to null)
 export function nextRefreshAt(person: Pick<IPerson, 'followersRefreshedAt'>, now = new Date()) {
   if (!person.followersRefreshedAt) return null
-  const next = new Date(person.followersRefreshedAt.getTime() + REFRESH_LIMIT_MS)
+  const next = new Date(person.followersRefreshedAt.getTime() + refreshLimitMs())
   return next > now ? next : null
 }
 
@@ -130,7 +137,7 @@ export async function refreshFollowers(
   if (accounts.length === 0) return { checked: 0, updated: 0, limited: false }
 
   const now = new Date()
-  if (!(await claimDailyRefresh(person, now))) return { checked: 0, updated: 0, limited: true }
+  if (!(await claimRefresh(person, now))) return { checked: 0, updated: 0, limited: true }
 
   const results = await Promise.all(
     accounts.map((account) => lookup(account.platform as FollowerPlatform, account.handle!)),
@@ -180,7 +187,7 @@ export async function refreshDueBatch(limit = CRON_BATCH) {
     // Aaj refresh ho chuka ho to nahi
     $or: [
       { followersRefreshedAt: null },
-      { followersRefreshedAt: { $lte: new Date(now.getTime() - REFRESH_LIMIT_MS) } },
+      { followersRefreshedAt: { $lte: new Date(now.getTime() - refreshLimitMs()) } },
     ],
     socialAccounts: {
       $elemMatch: {

@@ -42,6 +42,9 @@ export const env = {
   cloudinaryApiSecret: (process.env.CLOUDINARY_API_SECRET || '').trim(),
   // Cloudinary ke andar is folder mein
   cloudinaryFolder: (process.env.CLOUDINARY_FOLDER || 'influencer-platform').trim(),
+  // Ek talent ke followers kitne ghante mein ek dafa dhoond sakte hain (save, button, cron
+  // sab mila ke). 0 ya khali = koi limit nahi; jaise 24 = din mein ek dafa
+  followersRefreshLimitHours: Math.max(0, Number(process.env.FOLLOWERS_REFRESH_LIMIT_HOURS) || 0),
   // Vercel Cron yahi secret "Authorization: Bearer ..." mein bhejta hai
   cronSecret: (process.env.CRON_SECRET || '').trim(),
 }

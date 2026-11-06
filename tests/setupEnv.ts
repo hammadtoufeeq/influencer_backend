@@ -8,6 +8,7 @@ process.env.TAVILY_API_KEY = ''
 process.env.YOUTUBE_API_KEY = ''
 process.env.GROQ_API_KEY = ''
 process.env.CRON_SECRET = 'test-cron-secret'
+process.env.FOLLOWERS_REFRESH_LIMIT_HOURS = '0'
 // Tests mein tasveerein disk pe (Cloudinary kabhi nahi)
 process.env.CLOUDINARY_URL = ''
 process.env.CLOUDINARY_CLOUD_NAME = ''

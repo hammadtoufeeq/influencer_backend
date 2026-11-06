@@ -179,7 +179,8 @@ describe('profile edits', () => {
       expect(account.followersStatus).toBe('ok')
       expect(res.body.data.person.totalFollowers).toBe(5_400_000)
 
-      // Aaj ho chuka: din mein dobara nahi, na button se na save se
+      // Limit lagi ho (24 ghante): dobara nahi, na button se na save se
+      env.followersRefreshLimitHours = 24
       const again = await talent.agent.post(`/api/people/${person._id}/refresh-followers`)
       expect(again.status).toBe(429)
       expect(again.body.error.code).toBe('REFRESH_TOO_SOON')
@@ -195,8 +196,17 @@ describe('profile edits', () => {
       const [kept, waiting] = resave.body.data.person.socialAccounts
       expect(kept.followers).toBe(5_400_000)
       expect(waiting.followersCheckedAt).toBeUndefined()
+
+      // Limit na ho (default): button jitni dafa chahe
+      env.followersRefreshLimitHours = 0
+      const first = await talent.agent.post(`/api/people/${person._id}/refresh-followers`)
+      const second = await talent.agent.post(`/api/people/${person._id}/refresh-followers`)
+      expect(first.status).toBe(200)
+      expect(second.status).toBe(200)
+      expect(fetchMock).toHaveBeenCalledTimes(5)
     } finally {
       env.tavilyApiKey = ''
+      env.followersRefreshLimitHours = 0
     }
   })
 

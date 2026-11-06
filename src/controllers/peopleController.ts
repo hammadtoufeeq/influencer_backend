@@ -308,7 +308,7 @@ function tooSoon(next: Date) {
   return new AppError(
     429,
     'REFRESH_TOO_SOON',
-    `Followers can be refreshed once a day. Try again in ${hours} hour${hours === 1 ? '' : 's'}`,
+    `Followers were refreshed recently. Try again in ${hours} hour${hours === 1 ? '' : 's'}`,
     undefined,
     { nextRefreshAt: next.toISOString() },
   )
