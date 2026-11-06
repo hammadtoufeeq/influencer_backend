@@ -2,6 +2,7 @@ import type { Request, Response } from 'express'
 import { isValidObjectId } from 'mongoose'
 import '../types/express'
 import { Person } from '../models/Person'
+import { OPEN_CLAIM_STATUSES, ProfileClaim } from '../models/ProfileClaim'
 import { User } from '../models/User'
 import { readImage, removeImage, saveImage } from '../services/imageStorage'
 import { canManageProfile } from '../services/representationService'
@@ -42,7 +43,8 @@ export async function removeAvatar(req: Request, res: Response) {
 }
 
 // Profile ki photo kaun badal sakta hai: maalik talent, us ka manager ("manageProfile"),
-// ya admin (sirf unclaimed profile; claimed profile maalik ki hai)
+// admin (sirf unclaimed profile; claimed profile maalik ki hai), ya woh talent jis ne yeh
+// nayi profile khud bheji aur us ka claim abhi chal raha hai (draft, approve se pehle)
 async function editablePerson(req: Request) {
   const id = String(req.params.id)
   if (!isValidObjectId(id)) throw new AppError(404, 'NOT_FOUND', 'Profile not found')
@@ -53,7 +55,19 @@ async function editablePerson(req: Request) {
     person.claimedBy?.toString() === user.id ||
     (user.role === 'representative' && (await canManageProfile(user.id, id)))
   const isAdmin = user.role === 'admin' && !person.claimedBy
-  if (!isOwner && !isAdmin) {
+  const isSubmitter =
+    !isOwner &&
+    person.isDraft &&
+    !person.claimedBy &&
+    Boolean(
+      await ProfileClaim.exists({
+        person: person._id,
+        user: user.id,
+        isNewProfile: true,
+        status: { $in: OPEN_CLAIM_STATUSES },
+      }),
+    )
+  if (!isOwner && !isAdmin && !isSubmitter) {
     throw new AppError(403, 'FORBIDDEN', 'You can only change the photo of your own profile')
   }
   return person

@@ -34,6 +34,14 @@ export const env = {
   // Optional: regex se number na nikle to Groq ka sasta model text se nikale
   groqApiKey: (process.env.GROQ_API_KEY || '').trim(),
   groqModel: (process.env.GROQ_MODEL || 'llama-3.1-8b-instant').trim(),
+  // Tasveerein Cloudinary pe (laga ho to sab uploads wahin). Ya poora CLOUDINARY_URL
+  // (cloudinary://<api_key>:<api_secret>@<cloud_name>), ya teeno alag alag
+  cloudinaryUrl: (process.env.CLOUDINARY_URL || '').trim(),
+  cloudinaryCloudName: (process.env.CLOUDINARY_CLOUD_NAME || '').trim(),
+  cloudinaryApiKey: (process.env.CLOUDINARY_API_KEY || '').trim(),
+  cloudinaryApiSecret: (process.env.CLOUDINARY_API_SECRET || '').trim(),
+  // Cloudinary ke andar is folder mein
+  cloudinaryFolder: (process.env.CLOUDINARY_FOLDER || 'influencer-platform').trim(),
   // Vercel Cron yahi secret "Authorization: Bearer ..." mein bhejta hai
   cronSecret: (process.env.CRON_SECRET || '').trim(),
 }

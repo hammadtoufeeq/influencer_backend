@@ -2,10 +2,15 @@ import { promises as fs } from 'fs'
 import path from 'path'
 import { Types } from 'mongoose'
 import { UploadedImage } from '../models/UploadedImage'
+import {
+  cloudinaryConfigured,
+  removeFromCloudinary,
+  uploadToCloudinary,
+} from './cloudinaryStorage'
 
-// Tasveerein kahan jati hain. Abhi: disk (uploads/ folder) ya MongoDB.
-// Baad mein Cloudinary: yahan ek aur driver, routes / frontend wahi rahenge
-export type UploadDriver = 'disk' | 'mongo'
+// Tasveerein kahan jati hain: Cloudinary (keys lagi hon), warna disk (uploads/ folder) ya MongoDB.
+// Routes / frontend har driver ke saath wahi rehte hain
+export type UploadDriver = 'cloudinary' | 'disk' | 'mongo'
 
 export const IMAGE_TYPES = {
   'image/jpeg': 'jpg',
@@ -17,10 +22,12 @@ export type ImageType = keyof typeof IMAGE_TYPES
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024
 export const UPLOAD_URL_PREFIX = '/api/uploads/'
 
-// Vercel pe file system read-only hai, is liye wahan MongoDB
+// UPLOAD_DRIVER se chuno, warna: Cloudinary laga ho to wahi, Vercel pe MongoDB
+// (file system read-only), baqi jagah disk
 export function uploadDriver(): UploadDriver {
   const chosen = process.env.UPLOAD_DRIVER
-  if (chosen === 'disk' || chosen === 'mongo') return chosen
+  if (chosen === 'cloudinary' || chosen === 'disk' || chosen === 'mongo') return chosen
+  if (cloudinaryConfigured()) return 'cloudinary'
   return process.env.VERCEL ? 'mongo' : 'disk'
 }
 
@@ -49,8 +56,9 @@ export function parseUploadUrl(url?: string | null) {
 const contentTypeOf = (ext: string) =>
   (Object.entries(IMAGE_TYPES).find(([, e]) => e === ext)?.[0] ?? 'application/octet-stream') as ImageType
 
-// Tasveer save karo, uska public URL wapas
+// Tasveer save karo, uska public URL wapas (Cloudinary pe https://res.cloudinary.com/...)
 export async function saveImage(buffer: Buffer, type: ImageType, owner?: string) {
+  if (uploadDriver() === 'cloudinary') return uploadToCloudinary(buffer)
   const id = new Types.ObjectId()
   const ext = IMAGE_TYPES[type]
   if (uploadDriver() === 'disk') {
@@ -62,8 +70,10 @@ export async function saveImage(buffer: Buffer, type: ImageType, owner?: string)
   return `${UPLOAD_URL_PREFIX}${id}.${ext}`
 }
 
-// Purani tasveer hatao (sirf hamari apni upload; bahar ka link ya seed photo nahi)
+// Purani tasveer hatao (sirf hamari apni upload; bahar ka link ya seed photo nahi).
+// Driver badalne ke baad bhi purani jagah wali tasveer sahi jagah se hat'ti hai
 export async function removeImage(url?: string | null) {
+  await removeFromCloudinary(url)
   const parsed = parseUploadUrl(url)
   if (!parsed) return
   await fs.rm(path.join(uploadDir(), parsed.file), { force: true }).catch(() => undefined)

@@ -311,16 +311,20 @@ Every account can upload a photo (talent, manager, admin) or logo (business); a 
 |---|---|---|---|
 | PUT | `/api/account/avatar` | logged in | upload / replace my photo or logo -> `user.avatarUrl` (the old file is deleted) |
 | DELETE | `/api/account/avatar` | logged in | remove it |
-| PUT | `/api/people/:id/photo` | owner, their manager, admin (unclaimed) | upload the profile photo -> `photoUrl` (clears `photoCredit`) |
+| PUT | `/api/people/:id/photo` | owner, their manager, admin (unclaimed), or the talent who submitted a new profile while its claim is open | upload the profile photo -> `photoUrl` (clears `photoCredit`) |
 | DELETE | `/api/people/:id/photo` | same | remove it |
 | GET | `/api/uploads/:file` | public | the image, cached for a year (each upload gets a new name) |
 
 Errors: 400 `NO_FILE`, `INVALID_IMAGE`, `FILE_TOO_LARGE`. Business cards and pages return `logoUrl`, manager cards `photoUrl`, campaign cards `business.logoUrl`. Deleting an account deletes its photo.
 
 **Where files go** (`src/services/imageStorage.ts`, `UPLOAD_DRIVER`):
-- `disk` (default locally / on a normal server): the `uploads/` folder (`UPLOAD_DIR` to change it). The folder is in git, the uploaded files are not.
-- `mongo` (default on Vercel, whose file system is read-only): the `uploaded_images` collection.
-- Cloudinary later: add a driver in the same file; routes and frontend stay the same.
+- `cloudinary` (default whenever Cloudinary keys are set, locally and on Vercel): `src/services/cloudinaryStorage.ts` streams the file from multer's memory to Cloudinary, in the folder `CLOUDINARY_FOLDER` (default `influencer-platform`), shrinking anything larger than 1600 px. The saved link is the `https://res.cloudinary.com/...` URL with `f_auto,q_auto`, so browsers get WebP/AVIF at the right quality. Replacing or removing a photo deletes the old file from Cloudinary (only files in our cloud and folder). A failed upload answers 502 `UPLOAD_FAILED`.
+- `disk` (no Cloudinary keys, locally / on a normal server): the `uploads/` folder (`UPLOAD_DIR` to change it). The folder is in git, the uploaded files are not.
+- `mongo` (no Cloudinary keys, on Vercel, whose file system is read-only): the `uploaded_images` collection.
+
+Photos uploaded before Cloudinary was set up keep working (`/api/uploads/...`) and are deleted from their old place when replaced.
+
+**Cloudinary keys**: sign up at cloudinary.com, open *Dashboard* (or *Settings → API Keys*) and copy either the **API environment variable** into `CLOUDINARY_URL` (`cloudinary://<api_key>:<api_secret>@<cloud_name>`), or the three values into `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` and `CLOUDINARY_API_SECRET`. Set them in `.env` and in the backend's Vercel project (never in the frontend). The free plan is enough for profile photos.
 
 ## Shortlist endpoints
 
@@ -411,6 +415,8 @@ The backend runs on Vercel as a serverless function (Vercel uses the app exporte
 `NODE_ENV`, `CLIENT_URL` (comma separated for several frontends), `MONGO_URI`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` (see `.env.example`).
 
 For **Sign in / Sign up with Google** set `GOOGLE_CLIENT_ID`: in Google Cloud Console open *APIs & Services → Credentials → Create credentials → OAuth client ID*, choose *Web application*, and add the frontend domain (for example `https://influencer-frontend-kappa.vercel.app`) under *Authorized JavaScript origins*. The client ID is public (not a secret). Without it the Google buttons are simply hidden. Endpoints: `GET /api/auth/google/config`, `POST /api/auth/google/login` and `POST /api/auth/google/register` (same fields as `/register`, minus email and password).
+
+For **photo uploads on Cloudinary** set `CLOUDINARY_URL` (or `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`), see *Photo uploads* above. Without them photos are stored in MongoDB on Vercel.
 
 For **automatic followers** set `YOUTUBE_API_KEY` (Google Cloud Console → *APIs & Services → Library → YouTube Data API v3 → Enable*, then *Credentials → Create credentials → API key*, and restrict the key to *YouTube Data API v3*), `TAVILY_API_KEY` (sign up at app.tavily.com, the key is on the dashboard; the free plan has 1,000 credits a month) and `CRON_SECRET` (any long random string, Vercel sends it to the cron). `GROQ_API_KEY` (console.groq.com → API Keys) is optional, and `GROQ_MODEL` defaults to `llama-3.1-8b-instant`. Vercel's Hobby plan runs cron jobs once a day, which is what `vercel.json` asks for.
 
