@@ -203,10 +203,48 @@ describe('profile edits', () => {
       const second = await talent.agent.post(`/api/people/${person._id}/refresh-followers`)
       expect(first.status).toBe(200)
       expect(second.status).toBe(200)
-      expect(fetchMock).toHaveBeenCalledTimes(5)
+      // Har refresh: Instagram ki search (mili) + TikTok ki search aur us ke page ka Extract
+      expect(fetchMock).toHaveBeenCalledTimes(7)
     } finally {
       env.tavilyApiKey = ''
       env.followersRefreshLimitHours = 0
+    }
+  })
+
+  it('reads the profile page when search does not know the account', async () => {
+    const { env } = await import('../src/config/env')
+    env.tavilyApiKey = 'test-key'
+    try {
+      const talent = await loginAs(app, 'talent')
+      const person = await createPerson({ claimedBy: talent.user._id })
+      const fetchMock = jest.spyOn(global, 'fetch').mockImplementation(async (url) => {
+        const body = String(url).includes('/extract')
+          ? {
+              results: [
+                {
+                  url: 'https://www.instagram.com/small_creator/',
+                  raw_content: '1,234 Followers, 210 Following, 35 Posts',
+                },
+              ],
+            }
+          : {
+              results: [
+                { url: 'https://www.instagram.com/someone_else/', content: '9M Followers' },
+              ],
+            }
+        return { ok: true, status: 200, json: async () => body } as Response
+      })
+
+      const res = await talent.agent.patch(`/api/people/${person._id}`).send({
+        socialAccounts: [{ platform: 'instagram', url: 'https://instagram.com/small_creator' }],
+      })
+      expect(res.status).toBe(200)
+      expect(fetchMock).toHaveBeenCalledTimes(2)
+      const [account] = res.body.data.person.socialAccounts
+      expect(account.followers).toBe(1234)
+      expect(account.followersSourceUrl).toBe('https://www.instagram.com/small_creator/')
+    } finally {
+      env.tavilyApiKey = ''
     }
   })
 

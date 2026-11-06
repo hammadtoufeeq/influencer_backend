@@ -6,6 +6,7 @@ import { parseFollowerCount } from './parseCount'
 import type { LookupResult } from './types'
 
 const API = 'https://api.tavily.com/search'
+const EXTRACT_API = 'https://api.tavily.com/extract'
 
 type TavilyPlatform = Exclude<FollowerPlatform, 'youtube'>
 
@@ -21,6 +22,18 @@ const NAMES: Record<TavilyPlatform, string> = {
   facebook: 'facebook',
   x: 'x twitter',
   tiktok: 'tiktok',
+}
+
+// Account ka apna page (Extract seedha yahi parhta hai)
+const PROFILE_URLS: Record<TavilyPlatform, (handle: string) => string> = {
+  instagram: (handle) => `https://www.instagram.com/${handle}/`,
+  facebook: (handle) => `https://www.facebook.com/${handle}`,
+  x: (handle) => `https://x.com/${handle}`,
+  tiktok: (handle) => `https://www.tiktok.com/@${handle}`,
+}
+
+interface ExtractResponse {
+  results?: { url?: string; raw_content?: string }[]
 }
 
 interface SearchResponse {
@@ -68,6 +81,34 @@ export async function tavilyFollowers(
     if (!/follower|subscriber/i.test(text)) continue
     const count = await groqExtractCount(text, handle)
     if (count !== null) return { status: 'ok', count, sourceUrl: page.url! }
+  }
+  // Search index mein account hi nahi (chhote / naye accounts): profile ka page seedha parho
+  return extractFromProfile(platform, handle)
+}
+
+// Tavily Extract (basic: 5 kamyab pages pe 1 credit): account ke apne page ka text
+async function extractFromProfile(platform: TavilyPlatform, handle: string): Promise<LookupResult> {
+  const url = PROFILE_URLS[platform](handle)
+  let data: ExtractResponse
+  try {
+    const res = await fetch(EXTRACT_API, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${env.tavilyApiKey}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(15_000),
+      body: JSON.stringify({ urls: [url], extract_depth: 'basic' }),
+    })
+    if (!res.ok) return { status: 'error' }
+    data = (await res.json()) as ExtractResponse
+  } catch {
+    return { status: 'error' }
+  }
+
+  for (const page of data.results ?? []) {
+    // Login page pe redirect ho gaya ho to us ka text nahi maante
+    if (page.url && !urlMatchesHandle(platform, page.url, handle)) continue
+    const text = page.raw_content ?? ''
+    const count = parseFollowerCount(text) ?? (await groqExtractCount(text.slice(0, 4000), handle))
+    if (count !== null) return { status: 'ok', count, sourceUrl: url }
   }
   return { status: 'not_found' }
 }
